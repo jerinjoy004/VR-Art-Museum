@@ -127,4 +127,4 @@ Pull requests welcome! This project combines modern web technologies with immers
 ---
 
 **Experience art in a whole new dimension! 🎨🥽**
-# VR-Art-Museum
+
