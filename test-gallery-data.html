@@ -1,0 +1,28 @@
+<!-- Sample Test Gallery Data -->
+<!-- Add this to test the image error handling -->
+
+<script>
+// Test data with mixed local and external images
+const testArtworks = [
+  {
+    id: 1,
+    title: "Local Test Image",
+    image_url: "/vite.svg", // This should work (local)
+    artist_name: "Test Artist"
+  },
+  {
+    id: 2,
+    title: "External Image (may fail)",
+    image_url: "https://external-site.com/image.jpg", // This may fail with CORS
+    artist_name: "External Artist"
+  },
+  {
+    id: 3,
+    title: "Placeholder Test",
+    image_url: null, // This will show placeholder
+    artist_name: "No Image Artist"
+  }
+]
+
+console.log('🖼️ Test gallery data ready:', testArtworks)
+</script>
