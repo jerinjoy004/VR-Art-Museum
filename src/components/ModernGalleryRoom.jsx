@@ -579,7 +579,7 @@ function ModernGalleryRoom({ artworks = [], roomData = null }) {
           
           {/* Artwork Image - MUCH LARGER with error handling */}
           <a-image
-            position={`${xPosition} ${eyeLevel} ${zPosition + (isLeftWall ? 0.42 : -0.42)}`}
+            position={`${xPosition} ${eyeLevel} ${zPosition + (isLeftWall ? 0.45 : -0.45)}`}
             width="5.5"
             height="4"
             src={imageUrl}
@@ -595,7 +595,7 @@ function ModernGalleryRoom({ artworks = [], roomData = null }) {
           
           {/* Fallback placeholder if image fails to load */}
           <a-plane
-            position={`${xPosition} ${eyeLevel} ${zPosition + (isLeftWall ? 0.41 : -0.41)}`}
+            position={`${xPosition} ${eyeLevel} ${zPosition + (isLeftWall ? 0.44 : -0.44)}`}
             width="5.5"
             height="4"
             material="color: #E5E5E5; opacity: 0.3"
