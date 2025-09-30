@@ -541,7 +541,9 @@ function ModernGalleryRoom({ artworks = [], roomData = null }) {
       const rotation = isLeftWall ? "0 0 0" : "0 180 0"
       
       // Use placeholder if image URL is problematic
-      const imageUrl = artwork.image_url || createPlaceholderDataURL(index)
+      const imageUrl = artwork.image_url && typeof artwork.image_url === 'string'
+        ? artwork.image_url
+        : (artwork.image_path ? getPublicImageUrl(artwork.image_path) : createPlaceholderDataURL(index));
 
       return (
         <a-entity key={artwork.id} className="artwork-display" data-artwork-index={index}>
