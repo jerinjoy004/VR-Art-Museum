@@ -7,7 +7,7 @@ function Navbar() {
   return (
     <nav className="navbar">
       <Link to="/" className="navbar-brand">
-        🎨 Enhanced VR Gallery
+        🎨 VR Gallery
       </Link>
       
       <ul className="navbar-nav">
@@ -15,14 +15,6 @@ function Navbar() {
           <Link 
             to="/" 
             className={`nav-link ${location.pathname === '/' ? 'active' : ''}`}
-          >
-            Create Room
-          </Link>
-        </li>
-        <li>
-          <Link 
-            to="/browse" 
-            className={`nav-link ${location.pathname === '/browse' ? 'active' : ''}`}
           >
             Browse Rooms
           </Link>
@@ -32,7 +24,7 @@ function Navbar() {
             to="/upload" 
             className={`nav-link ${location.pathname === '/upload' ? 'active' : ''}`}
           >
-            Upload Art
+            Create Room
           </Link>
         </li>
       </ul>
