@@ -56,8 +56,7 @@ function ModernGalleryRoom({ artworks = [], roomData = null }) {
           jumpForce: { type: 'number', default: 8 },
           
           // Collision parameters
-          enabled: { type: 'boolean', default: true },
-          debug: { type: 'boolean', default: false }
+          enabled: { type: 'boolean', default: true }
         },
         
         init: function () {
@@ -107,17 +106,154 @@ function ModernGalleryRoom({ artworks = [], roomData = null }) {
           this.setupKeyboardControls()
           this.setupMouseControls()
           this.setupCollisionSystem()
-          
-          if (this.data.debug) {
-            console.log('Player Controller initialized with settings:', this.data)
+        },
+        
+        setupMouseControls: function() {
+          // Enhanced mouse movement handler with fullscreen compatibility
+          this.onMouseMove = (event) => {
+            if (!this.isPointerLocked) return
+            
+            const movementX = event.movementX || event.mozMovementX || event.webkitMovementX || 0
+            const movementY = event.movementY || event.mozMovementY || event.webkitMovementY || 0
+            
+            this.mouseMovement.x = movementX * this.data.mouseSensitivity
+            this.mouseMovement.y = movementY * this.data.mouseSensitivity
           }
+          
+          // Enhanced pointer lock handlers with better fullscreen support
+          this.onPointerLockChange = () => {
+            this.isPointerLocked = !!document.pointerLockElement
+            console.log('Pointer lock changed:', this.isPointerLocked ? 'LOCKED' : 'UNLOCKED')
+          }
+          
+          // Improved canvas click handler for fullscreen
+          this.onCanvasClick = (event) => {
+            event.preventDefault()
+            event.stopPropagation()
+            
+            if (!this.isPointerLocked) {
+              // Get the correct target based on current mode
+              let lockTarget
+      
+              if (document.fullscreenElement) {
+                // In fullscreen mode, use the fullscreen element
+                lockTarget = document.fullscreenElement
+              } else {
+                // In windowed mode, use canvas or scene
+                lockTarget = this.el.sceneEl.canvas || this.el.sceneEl
+              }
+              
+              if (lockTarget && lockTarget.requestPointerLock) {
+                lockTarget.requestPointerLock()
+                  .then(() => {
+                    console.log('Pointer lock requested successfully')
+                  })
+                  .catch((error) => {
+                    console.warn('Pointer lock request failed:', error)
+                    // Fallback: try with canvas directly
+                    if (this.el.sceneEl.canvas && this.el.sceneEl.canvas !== lockTarget) {
+                      this.el.sceneEl.canvas.requestPointerLock().catch(e => {
+                        console.warn('Fallback pointer lock also failed:', e)
+                      })
+                    }
+                  })
+              }
+            }
+          }
+          
+          // Enhanced fullscreen change handler with proper pointer lock management
+          this.onFullscreenChange = () => {
+            const isFullscreen = !!document.fullscreenElement
+            console.log('Fullscreen changed:', isFullscreen ? 'FULLSCREEN' : 'WINDOWED')
+            
+            // Store current pointer lock state
+            const wasLocked = this.isPointerLocked
+            
+            // Small delay to allow fullscreen transition to complete
+            setTimeout(() => {
+              // If we were locked before fullscreen change, re-request lock
+              if (wasLocked && !this.isPointerLocked) {
+                const lockTarget = document.fullscreenElement || this.el.sceneEl.canvas || this.el.sceneEl
+                
+                if (lockTarget && lockTarget.requestPointerLock) {
+                  lockTarget.requestPointerLock()
+                    .then(() => {
+                      console.log('Pointer lock restored after fullscreen change')
+                    })
+                    .catch((error) => {
+                      console.warn('Failed to restore pointer lock after fullscreen:', error)
+                    })
+                }
+              }
+            }, 200) // Increased delay for better reliability
+            
+            this.wasPointerLocked = wasLocked
+          }
+          
+          // Add event listeners
+          document.addEventListener('mousemove', this.onMouseMove, { passive: false })
+          document.addEventListener('pointerlockchange', this.onPointerLockChange)
+          document.addEventListener('mozpointerlockchange', this.onPointerLockChange)
+          document.addEventListener('webkitpointerlockchange', this.onPointerLockChange)
+          
+          // Enhanced fullscreen event listeners
+          document.addEventListener('fullscreenchange', this.onFullscreenChange)
+          document.addEventListener('mozfullscreenchange', this.onFullscreenChange)
+          document.addEventListener('webkitfullscreenchange', this.onFullscreenChange)
+          document.addEventListener('msfullscreenchange', this.onFullscreenChange)
+          
+          // Enhanced click handling for both canvas and scene
+          const canvas = this.el.sceneEl.canvas
+          const scene = this.el.sceneEl
+          
+          if (canvas) {
+            canvas.addEventListener('click', this.onCanvasClick, { passive: false })
+            // Also listen for contextmenu to prevent right-click issues
+            canvas.addEventListener('contextmenu', (e) => {
+              e.preventDefault()
+              return false
+            })
+          }
+          
+          if (scene && scene !== canvas) {
+            scene.addEventListener('click', this.onCanvasClick, { passive: false })
+            scene.addEventListener('contextmenu', (e) => {
+              e.preventDefault()
+              return false
+            })
+          }
+          
+          // Add window focus/blur handlers to maintain input state
+          this.onWindowFocus = () => {
+            // Reset key states when window regains focus to prevent stuck keys
+            Object.keys(this.keys).forEach(key => {
+              this.keys[key] = false
+            })
+          }
+          
+          this.onWindowBlur = () => {
+            // Reset key states when window loses focus
+            Object.keys(this.keys).forEach(key => {
+              this.keys[key] = false
+            })
+          }
+          
+          window.addEventListener('focus', this.onWindowFocus)
+          window.addEventListener('blur', this.onWindowBlur)
         },
         
         setupKeyboardControls: function() {
-          // Keyboard event handlers with fullscreen compatibility
+          // Enhanced keyboard handlers with fullscreen compatibility
           this.onKeyDown = (event) => {
-            // Check if we're in pointer lock mode (works in both windowed and fullscreen)
-            if (!this.isPointerLocked) return
+            // Don't require pointer lock for keyboard input in fullscreen
+            const isFullscreen = !!document.fullscreenElement
+            
+            if (!this.isPointerLocked && !isFullscreen) return
+            
+            // Prevent default behavior for movement keys
+            if (['KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space', 'ShiftLeft', 'ShiftRight'].includes(event.code)) {
+              event.preventDefault()
+            }
             
             switch (event.code) {
               case 'KeyW':
@@ -139,14 +275,21 @@ function ModernGalleryRoom({ artworks = [], roomData = null }) {
               case 'Space':
                 this.keys.jump = true
                 break
-            }
-            
-            if (this.data.debug && (event.code.startsWith('Key') || event.code.includes('Shift'))) {
-              console.log('Key pressed:', event.code, 'Keys:', this.keys)
+              case 'Escape':
+                // Handle escape key to exit fullscreen
+                if (document.fullscreenElement) {
+                  document.exitFullscreen().catch(console.warn)
+                }
+                break
             }
           }
           
           this.onKeyUp = (event) => {
+            // Allow key up events regardless of pointer lock state
+            if (['KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space', 'ShiftLeft', 'ShiftRight'].includes(event.code)) {
+              event.preventDefault()
+            }
+            
             switch (event.code) {
               case 'KeyW':
                 this.keys.forward = false
@@ -170,94 +313,9 @@ function ModernGalleryRoom({ artworks = [], roomData = null }) {
             }
           }
           
-          document.addEventListener('keydown', this.onKeyDown)
-          document.addEventListener('keyup', this.onKeyUp)
-        },
-        
-        setupMouseControls: function() {
-          // Mouse movement handler with fullscreen compatibility
-          this.onMouseMove = (event) => {
-            if (!this.isPointerLocked) return
-            
-            const movementX = event.movementX || event.mozMovementX || event.webkitMovementX || 0
-            const movementY = event.movementY || event.mozMovementY || event.webkitMovementY || 0
-            
-            this.mouseMovement.x = movementX * this.data.mouseSensitivity
-            this.mouseMovement.y = movementY * this.data.mouseSensitivity
-          }
-          
-          // Enhanced pointer lock handlers for fullscreen compatibility
-          this.onPointerLockChange = () => {
-            // Check if any element has pointer lock (works in fullscreen and windowed mode)
-            this.isPointerLocked = !!document.pointerLockElement
-            
-            if (this.data.debug) {
-              console.log('Pointer lock changed:', this.isPointerLocked, 'Element:', document.pointerLockElement)
-              console.log('Fullscreen element:', document.fullscreenElement)
-            }
-          }
-          
-          // Enhanced canvas click handler for fullscreen support
-          this.onCanvasClick = () => {
-            if (!this.isPointerLocked) {
-              // Try to request pointer lock on the canvas or scene element
-              const lockTarget = this.el.sceneEl.canvas || this.el.sceneEl
-              
-              if (lockTarget && lockTarget.requestPointerLock) {
-                lockTarget.requestPointerLock().then(() => {
-                  if (this.data.debug) {
-                    console.log('Pointer lock requested successfully')
-                  }
-                }).catch((error) => {
-                  console.warn('Pointer lock request failed:', error)
-                })
-              }
-            }
-          }
-          
-          // Enhanced fullscreen change handler
-          this.onFullscreenChange = () => {
-            const isFullscreen = !!document.fullscreenElement
-            
-            if (this.data.debug) {
-              console.log('Fullscreen changed:', isFullscreen, 'Element:', document.fullscreenElement)
-            }
-            
-            // Re-request pointer lock if we were locked before fullscreen change
-            if (isFullscreen && this.wasPointerLocked && !this.isPointerLocked) {
-              setTimeout(() => {
-                const lockTarget = document.fullscreenElement || this.el.sceneEl.canvas || this.el.sceneEl
-                if (lockTarget && lockTarget.requestPointerLock) {
-                  lockTarget.requestPointerLock()
-                }
-              }, 100)
-            }
-            
-            this.wasPointerLocked = this.isPointerLocked
-          }
-          
-          // Add all event listeners with enhanced fullscreen support
-          document.addEventListener('mousemove', this.onMouseMove)
-          document.addEventListener('pointerlockchange', this.onPointerLockChange)
-          document.addEventListener('mozpointerlockchange', this.onPointerLockChange)
-          document.addEventListener('webkitpointerlockchange', this.onPointerLockChange)
-          
-          // Add fullscreen change listeners
-          document.addEventListener('fullscreenchange', this.onFullscreenChange)
-          document.addEventListener('mozfullscreenchange', this.onFullscreenChange)
-          document.addEventListener('webkitfullscreenchange', this.onFullscreenChange)
-          document.addEventListener('msfullscreenchange', this.onFullscreenChange)
-          
-          // Enhanced canvas click handler - supports both windowed and fullscreen
-          const canvas = this.el.sceneEl.canvas
-          if (canvas) {
-            canvas.addEventListener('click', this.onCanvasClick)
-          }
-          
-          // Also listen for clicks on the scene element for fullscreen support
-          if (this.el.sceneEl !== canvas) {
-            this.el.sceneEl.addEventListener('click', this.onCanvasClick)
-          }
+          // Use capture phase for better event handling
+          document.addEventListener('keydown', this.onKeyDown, { capture: true, passive: false })
+          document.addEventListener('keyup', this.onKeyUp, { capture: true, passive: false })
         },
         
         setupCollisionSystem: function() {
@@ -298,13 +356,6 @@ function ModernGalleryRoom({ artworks = [], roomData = null }) {
           
           // Precompute static collision boxes
           this.precomputeCollisionBoxes()
-          
-          if (this.data.debug) {
-            console.log('Room boundaries:', this.boundaries)
-            console.log('Player radius:', this.playerRadius)
-            console.log('Ground surfaces:', this.groundSurfaces.length)
-            console.log('Collision boxes:', this.collisionBoxes.length)
-          }
         },
         
         setupGroundDetection: function() {
@@ -314,17 +365,12 @@ function ModernGalleryRoom({ artworks = [], roomData = null }) {
           
           // Direction vector pointing downward
           this.downDirection = new THREE.Vector3(0, -1, 0)
-          
-          if (this.data.debug) {
-            console.log('Ground detection initialized with range:', this.data.groundCheckDistance)
-          }
         },
         
         precomputeCollisionBoxes: function() {
           // Wait for scene to load, then collect all colliders
           setTimeout(() => {
             this.collectColliders()
-            this.createDebugVisuals()
           }, 1000)
         },
         
@@ -377,10 +423,6 @@ function ModernGalleryRoom({ artworks = [], roomData = null }) {
             }
             
             this.collisionBoxes.push(box)
-            
-            if (this.data.debug) {
-              console.log(`Collider ${index} (${box.type}):`, box)
-            }
           })
           
           // Add museum bench colliders (for generated benches not in DOM)
@@ -403,141 +445,7 @@ function ModernGalleryRoom({ artworks = [], roomData = null }) {
             })
           }
           
-          console.log(`Collision system loaded: ${this.collisionBoxes.length} colliders (${colliderElements.length} DOM + ${benchCount} generated)`)
-        },
-        
-        createDebugVisuals: function() {
-          if (!this.data.debug) return
-          
-          // Remove existing debug visuals
-          const existingDebug = this.el.sceneEl.querySelectorAll('.debug-collider')
-          existingDebug.forEach(el => el.remove())
-          
-          // Create debug container
-          const debugContainer = document.createElement('a-entity')
-          debugContainer.setAttribute('id', 'collision-debug-container')
-          this.el.sceneEl.appendChild(debugContainer)
-          
-          // Create debug visuals for each collider
-          this.collisionBoxes.forEach((box, index) => {
-            const debugEl = document.createElement('a-entity')
-            debugEl.setAttribute('class', 'debug-collider')
-            
-            if (box.type === 'cylinder') {
-              const cylinder = document.createElement('a-cylinder')
-              cylinder.setAttribute('position', { x: box.x, y: box.y, z: box.z })
-              cylinder.setAttribute('radius', box.radius)
-              cylinder.setAttribute('height', 0.1)
-              cylinder.setAttribute('material', 'color: yellow; opacity: 0.5; transparent: true')
-              debugEl.appendChild(cylinder)
-            } else {
-              const debugBox = document.createElement('a-box')
-              debugBox.setAttribute('position', {
-                x: box.centerX,
-                y: box.centerY,
-                z: box.centerZ
-              })
-              debugBox.setAttribute('width', box.width)
-              debugBox.setAttribute('height', box.height)
-              debugBox.setAttribute('depth', box.depth)
-              debugBox.setAttribute('material', 'color: red; opacity: 0.3; transparent: true; wireframe: true')
-              debugEl.appendChild(debugBox)
-            }
-            
-            debugContainer.appendChild(debugEl)
-          })
-          
-          // Show room boundaries
-          const boundaryBox = document.createElement('a-box')
-          boundaryBox.setAttribute('position', {
-            x: (this.boundaries.maxX + this.boundaries.minX) / 2,
-            y: 1,
-            z: (this.boundaries.maxZ + this.boundaries.minZ) / 2
-          })
-          boundaryBox.setAttribute('width', this.boundaries.maxX - this.boundaries.minX)
-          boundaryBox.setAttribute('height', 0.1)
-          boundaryBox.setAttribute('depth', this.boundaries.maxZ - this.boundaries.minZ)
-          boundaryBox.setAttribute('material', 'color: blue; opacity: 0.2; transparent: true')
-          boundaryBox.setAttribute('class', 'debug-collider')
-          debugContainer.appendChild(boundaryBox)
-          
-          // Show ground surfaces
-          this.groundSurfaces.forEach((surface, index) => {
-            if (surface.type === 'plane') {
-              const groundDebug = document.createElement('a-plane')
-              groundDebug.setAttribute('position', {
-                x: (surface.maxX + surface.minX) / 2,
-                y: surface.y + 0.01, // Slightly above ground to be visible
-                z: (surface.maxZ + surface.minZ) / 2
-              })
-              groundDebug.setAttribute('rotation', '-90 0 0')
-              groundDebug.setAttribute('width', surface.maxX - surface.minX)
-              groundDebug.setAttribute('height', surface.maxZ - surface.minZ)
-              groundDebug.setAttribute('material', 'color: green; opacity: 0.3; transparent: true; wireframe: true')
-              groundDebug.setAttribute('class', 'debug-collider')
-              debugContainer.appendChild(groundDebug)
-            }
-          })
-          
-          // Create dynamic ground detection indicator (will follow player)
-          this.createGroundIndicator(debugContainer)
-          
-          console.log('Debug visuals created for', this.collisionBoxes.length, 'colliders and', this.groundSurfaces.length, 'ground surfaces')
-        },
-        
-        createGroundIndicator: function(debugContainer) {
-          // Create a visual indicator that shows ground detection raycast
-          this.groundIndicator = document.createElement('a-cylinder')
-          this.groundIndicator.setAttribute('radius', '0.1')
-          this.groundIndicator.setAttribute('height', '0.2')
-          this.groundIndicator.setAttribute('material', 'color: lime; opacity: 0.8; transparent: true')
-          this.groundIndicator.setAttribute('class', 'debug-collider')
-          this.groundIndicator.setAttribute('visible', 'false')
-          debugContainer.appendChild(this.groundIndicator)
-          
-          // Create raycast visualization line
-          this.raycastLine = document.createElement('a-cylinder')
-          this.raycastLine.setAttribute('radius', '0.02')
-          this.raycastLine.setAttribute('material', 'color: cyan; opacity: 0.6; transparent: true')
-          this.raycastLine.setAttribute('class', 'debug-collider')
-          this.raycastLine.setAttribute('visible', 'false')
-          debugContainer.appendChild(this.raycastLine)
-        },
-        
-        updateGroundDebugVisuals: function(playerPosition, groundInfo) {
-          if (!this.data.debug || !this.groundIndicator) return
-          
-          // Show raycast line
-          if (this.raycastLine) {
-            const rayLength = groundInfo.isGrounded ? groundInfo.distance : this.data.groundCheckDistance
-            this.raycastLine.setAttribute('position', {
-              x: playerPosition.x,
-              y: playerPosition.y - rayLength/2,
-              z: playerPosition.z
-            })
-            this.raycastLine.setAttribute('height', rayLength)
-            this.raycastLine.setAttribute('visible', 'true')
-            
-            // Change color based on ground detection
-            const color = groundInfo.isGrounded ? 'lime' : 'red'
-            this.raycastLine.setAttribute('material', `color: ${color}; opacity: 0.6; transparent: true`)
-          }
-          
-          // Show ground hit point
-          if (groundInfo.isGrounded && this.groundIndicator) {
-            this.groundIndicator.setAttribute('position', {
-              x: playerPosition.x,
-              y: groundInfo.groundHeight + 0.1,
-              z: playerPosition.z
-            })
-            this.groundIndicator.setAttribute('visible', 'true')
-            
-            // Change color based on surface type
-            const color = groundInfo.surfaceType === 'geometry' ? 'orange' : 'lime'
-            this.groundIndicator.setAttribute('material', `color: ${color}; opacity: 0.8; transparent: true`)
-          } else if (this.groundIndicator) {
-            this.groundIndicator.setAttribute('visible', 'false')
-          }
+          console.log(`Collision system loaded: ${this.collisionBoxes.length} colliders`)
         },
         
         tick: function(time, timeDelta) {
@@ -553,18 +461,23 @@ function ModernGalleryRoom({ artworks = [], roomData = null }) {
         },
         
         updateMouseLook: function(deltaTime) {
-          // Update target rotation based on mouse movement
+          // Enhanced mouse look with fullscreen compatibility
+          if (!this.isPointerLocked) {
+            // In fullscreen mode, allow limited mouse look even without pointer lock
+            if (!document.fullscreenElement) return
+          }
+          
+          // Apply mouse movement with smoothing
           this.targetYaw -= this.mouseMovement.x
           this.targetPitch -= this.mouseMovement.y
           
-          // Clamp vertical rotation
-          this.targetPitch = Math.max(-this.data.verticalLookLimit, 
-                                    Math.min(this.data.verticalLookLimit, this.targetPitch))
+          // Clamp pitch to prevent over-rotation
+          this.targetPitch = Math.max(-this.data.verticalLookLimit, Math.min(this.data.verticalLookLimit, this.targetPitch))
           
-          // Smooth rotation using lerp
-          const smoothing = this.data.smoothing
-          this.yaw = THREE.MathUtils.lerp(this.yaw, this.targetYaw, smoothing)
-          this.pitch = THREE.MathUtils.lerp(this.pitch, this.targetPitch, smoothing)
+          // Smooth interpolation
+          const smoothingFactor = Math.min(1, deltaTime / this.data.smoothing)
+          this.yaw += (this.targetYaw - this.yaw) * smoothingFactor
+          this.pitch += (this.targetPitch - this.pitch) * smoothingFactor
           
           // Reset mouse movement
           this.mouseMovement.x = 0
@@ -617,20 +530,11 @@ function ModernGalleryRoom({ artworks = [], roomData = null }) {
           // Perform ground detection using raycast
           const groundInfo = this.detectGround(position)
           
-          // Update debug visuals if enabled
-          if (this.data.debug) {
-            this.updateGroundDebugVisuals(position, groundInfo)
-          }
-          
           // Handle jumping
           if (this.keys.jump && this.isGrounded) {
             this.velocity.y = this.data.jumpForce
             this.isGrounded = false
             this.keys.jump = false // Prevent continuous jumping
-            
-            if (this.data.debug) {
-              console.log('Player jumped with force:', this.data.jumpForce)
-            }
           }
           
           if (groundInfo.isGrounded) {
@@ -649,17 +553,11 @@ function ModernGalleryRoom({ artworks = [], roomData = null }) {
                 y: adjustedY,
                 z: position.z
               })
-              
-              if (this.data.debug && !this.wasGrounded) {
-                console.log('Player landed on ground at height:', targetGroundHeight)
-              }
-              this.wasGrounded = true
             } else if (position.y > targetGroundHeight) {
               // Player is above ground - apply gravity
               this.isGrounded = false
               this.velocity.y += this.data.gravity * deltaTime
               this.velocity.y = Math.max(this.velocity.y, this.data.maxFallSpeed) // Terminal velocity
-              this.wasGrounded = false
             } else {
               // Player is below ground - push up
               this.isGrounded = true
@@ -675,11 +573,6 @@ function ModernGalleryRoom({ artworks = [], roomData = null }) {
             this.isGrounded = false
             this.velocity.y += this.data.gravity * deltaTime
             this.velocity.y = Math.max(this.velocity.y, this.data.maxFallSpeed) // Terminal velocity
-            
-            if (this.data.debug && this.wasGrounded) {
-              console.log('Player left ground, falling with gravity:', this.data.gravity)
-            }
-            this.wasGrounded = false
           }
           
           // Prevent falling below minimum ground level as safety net
@@ -845,10 +738,6 @@ function ModernGalleryRoom({ artworks = [], roomData = null }) {
                 }
                 
                 collided = true
-                
-                if (this.data.debug) {
-                  console.log(`Cylinder collision with ${box.id}, distance: ${distance.toFixed(2)}, radius: ${box.radius}`)
-                }
               }
             } else {
               // Box collision with sliding
@@ -871,20 +760,12 @@ function ModernGalleryRoom({ artworks = [], roomData = null }) {
                 }
                 
                 collided = true
-                
-                if (this.data.debug) {
-                  console.log(`Box collision with ${box.id}, overlap: X=${collision.overlapX.toFixed(2)}, Z=${collision.overlapZ.toFixed(2)}`)
-                }
               }
             }
           }
           
           // Apply final position
           this.el.setAttribute('position', finalPosition)
-          
-          if (this.data.debug && collided) {
-            console.log('Final position after collision resolution:', finalPosition)
-          }
         },
         
         checkBoxCollision: function(playerPos, box) {
@@ -952,27 +833,30 @@ function ModernGalleryRoom({ artworks = [], roomData = null }) {
         },
         
         remove: function() {
-          // Clean up all event listeners including fullscreen handlers
-          document.removeEventListener('keydown', this.onKeyDown)
-          document.removeEventListener('keyup', this.onKeyUp)
+          // Enhanced cleanup
+          document.removeEventListener('keydown', this.onKeyDown, { capture: true })
+          document.removeEventListener('keyup', this.onKeyUp, { capture: true })
           document.removeEventListener('mousemove', this.onMouseMove)
           document.removeEventListener('pointerlockchange', this.onPointerLockChange)
           document.removeEventListener('mozpointerlockchange', this.onPointerLockChange)
           document.removeEventListener('webkitpointerlockchange', this.onPointerLockChange)
           
-          // Remove fullscreen change listeners
           document.removeEventListener('fullscreenchange', this.onFullscreenChange)
           document.removeEventListener('mozfullscreenchange', this.onFullscreenChange)
           document.removeEventListener('webkitfullscreenchange', this.onFullscreenChange)
           document.removeEventListener('msfullscreenchange', this.onFullscreenChange)
           
-          // Remove canvas and scene click listeners
+          window.removeEventListener('focus', this.onWindowFocus)
+          window.removeEventListener('blur', this.onWindowBlur)
+          
           const canvas = this.el.sceneEl.canvas
           if (canvas) {
             canvas.removeEventListener('click', this.onCanvasClick)
+            canvas.removeEventListener('contextmenu', this.onCanvasClick)
           }
           if (this.el.sceneEl !== canvas) {
             this.el.sceneEl.removeEventListener('click', this.onCanvasClick)
+            this.el.sceneEl.removeEventListener('contextmenu', this.onCanvasClick)
           }
         }
       })
@@ -1728,8 +1612,7 @@ function ModernGalleryRoom({ artworks = [], roomData = null }) {
             runMultiplier: 2;
             mouseSensitivity: 0.15;
             smoothing: 0.12;
-            verticalLookLimit: 85;
-            debug: true
+            verticalLookLimit: 85
           ">
           
           <a-camera
