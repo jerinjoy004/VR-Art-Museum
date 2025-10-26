@@ -20,15 +20,15 @@ export const supabaseAPI = {
   },
 
   async getRoom(roomId) {
-    const { data, error } = await supabase
-      .from('rooms')
-      .select('*')
-      .eq('id', roomId)
-      .single()
+  const { data, error } = await supabase
+    .from('rooms')
+    .select('*')
+    .eq('id', roomId)
+    .single()
 
-    if (error) throw error
-    return data
-  },
+  if (error) throw error
+  return data
+},
 
   async createRoom(roomData) {
     const { data, error } = await supabase
@@ -78,6 +78,14 @@ export const supabaseAPI = {
       .getPublicUrl(fileName)
 
     return urlData.publicUrl
+  },
+
+  // Get public URL for an image stored in Supabase Storage
+  // Path should be the full file path (including folder/room id if used) as stored in Supabase Storage
+  // For example: '123/image_1.jpg' if you uploaded the file under room id 123
+  getPublicImageUrl(path) {
+    const { data } = supabase.storage.from('room-images').getPublicUrl(path)
+    return data.publicUrl
   },
 
   // Simplified room creation with images
