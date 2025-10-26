@@ -284,7 +284,7 @@ function ModernGalleryRoom({ artworks = [], roomData = null }) {
   };
 
   return (
-    <div className="vr-container" style={{ height: '100vh', width: '100vw' }}>
+    <div className="vr-container" style={{ height: '100vh', width: '85vw' }}>
       <div style={{ position: 'absolute', top: '20px', left: '20px', zIndex: 10, background: 'rgba(0,0,0,0.85)', color: 'white', padding: '1rem', borderRadius: '10px', pointerEvents: 'none', border: '2px solid #DAA520' }}>
         <div>🏛️ <strong>Grand Cathedral Gallery</strong></div>
         <div>🎮 <strong>WASD</strong> to walk (with wall-sliding!)</div>
